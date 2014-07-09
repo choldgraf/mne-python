@@ -4811,9 +4811,10 @@ def plot_phase_amplitude_plot(phase_bins, normalized_amplitude):
 
     Parameters
     ----------
-    phase_bins : Binned phase time series of phase modulating signal.
-    normalized_amplitude : Normalised phase amplitude time
-                           series of amplitude modulated signal.
+    phase_bins : array
+        Binned phase time series of phase modulating signal.
+    normalized_amplitude : array
+        Normalised phase amplitude time series of amplitude modulated signal.
 
     Returns
     -------
@@ -4840,12 +4841,18 @@ def plot_cross_frequency_coupling(times, freqs, traces, ztraces,
 
     Parameters
     ----------
-    times : Time points for signal plotting.
-    freqs : Frequencies.
-    traces : Normalized amplitude traces.
-    ztraces : Statistically significant amplitude traces.
-    z_threshold : Threshold of statistically significant amplitude traces.
-    erp : ERPs
+    times : array
+        Time points for signal plotting.
+    freqs : array
+        Frequencies.
+    traces : array
+        Normalized amplitude traces.
+    ztraces : array
+        Statistically significant amplitude traces.
+    z_threshold : float
+        Threshold of statistically significant amplitude traces.
+    erp : array
+        ERPs
 
     Returns
     -------
@@ -4854,7 +4861,6 @@ def plot_cross_frequency_coupling(times, freqs, traces, ztraces,
 
     """
     import matplotlib.pyplot as plt
-    plt.close('all')
 
     fig = plt.figure()
     ax1 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
@@ -4874,6 +4880,6 @@ def plot_cross_frequency_coupling(times, freqs, traces, ztraces,
     ax2.set_ylim([np.min(erp), np.max(erp)])
     ax2.set_xlabel('Times (s)')
     ax2.set_ylabel('ERP')
-    plt.tight_layout()
+    tight_layout()
     plt.show()
     return fig
