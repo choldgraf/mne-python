@@ -536,3 +536,95 @@ def _get_presser(fig):
             break
     assert func is not None
     return func
+
+
+def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude, title, show=True):
+    """
+    Plot Phase Amplitude Plot
+
+    Parameters
+    ----------
+    phase_bins : array
+        Binned phase time series of phase modulating signal.
+    normalized_amplitude : array
+        Normalised phase amplitude time series of amplitude modulated signal.
+    title : str
+        Title, default is phase amplitude plot.
+    show : bool
+        Call pyplot.show() at the end.
+
+    Returns
+    -------
+    fig : Instance of matplotlib.figure.Figure
+          Figure
+
+    """
+    if not title:
+         title = 'Phase amplitude plot'
+    import matplotlib.pyplot as plt
+    #fig = plt.figure()
+    for i in range(len(phase_bins) - 1):  # the bins are always more
+        plt.bar(np.rad2deg(phase_bins[i]), normalized_amplitude[i],
+                width=10, align='edge')
+        plt.xlabel('Phase bins (deg)')
+        plt.ylabel('Normalized Mean Amplitude')
+        plt.title(title)
+
+    if show:
+        plt.show()
+    #return fig
+    return
+
+
+def plot_cross_frequency_coupling(times, freqs, traces, ztraces,
+                                  z_threshold, erp):
+    """
+    Plot Cross Frequency Coupling
+
+    Parameters
+    ----------
+    times : array
+        Time points for signal plotting.
+    freqs : array
+        Frequencies.
+    traces : array
+        Normalized amplitude traces.
+    ztraces : array
+        Statistically significant amplitude traces.
+    z_threshold : float
+        Threshold of statistically significant amplitude traces.
+    erp : array
+        ERPs
+    show : bool
+        Call pyplot.show() at the end.
+
+    Returns
+    -------
+    fig : Instance of matplotlib.figure.Figure
+          Figure
+
+    """
+    import matplotlib.pyplot as plt
+
+    fig = plt.figure()
+    ax1 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
+    ax2 = plt.subplot2grid((3, 1), (2, 0), rowspan=1)
+    vmax = np.max(np.abs(traces))
+    vmin = -vmax
+    traces_plot = np.ma.masked_array(traces, np.abs(ztraces) < z_threshold)
+
+    ax1.pcolor(times, freqs, traces, vmin=vmin, vmax=vmax,
+               cmap=plt.cm.gray)
+    ax1.pcolor(times, freqs, traces_plot, vmin=vmin, vmax=vmax,
+               cmap=plt.cm.jet)
+    ax1.axis('tight')
+    ax1.set_ylabel('Freq (Hz)')
+
+    ax2.plot(times, erp, 'k')
+    ax2.set_ylim([np.min(erp), np.max(erp)])
+    ax2.set_xlabel('Times (s)')
+    ax2.set_ylabel('ERP')
+    tight_layout()
+    if show:
+        plt.show()
+    return fig
