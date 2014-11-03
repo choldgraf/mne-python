@@ -562,8 +562,8 @@ def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude, title, show=
     if not title:
          title = 'Phase amplitude plot'
     import matplotlib.pyplot as plt
-    #fig = plt.figure()
     for i in range(len(phase_bins) - 1):  # the bins are always more
+        plt.locator_params(axis='x', nbins=4)
         plt.bar(np.rad2deg(phase_bins[i]), normalized_amplitude[i],
                 width=10, align='edge')
         plt.xlabel('Phase bins (deg)')
@@ -572,7 +572,6 @@ def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude, title, show=
 
     if show:
         plt.show()
-    #return fig
     return
 
 
