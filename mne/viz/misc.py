@@ -538,7 +538,8 @@ def _get_presser(fig):
     return func
 
 
-def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude, title, show=True):
+def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude,
+                                  title=None, show=True):
     """
     Plot Phase Amplitude Plot
 
@@ -560,7 +561,7 @@ def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude, title, show=
 
     """
     if not title:
-         title = 'Phase amplitude plot'
+        title = 'Phase amplitude plot'
     import matplotlib.pyplot as plt
     for i in range(len(phase_bins) - 1):  # the bins are always more
         plt.locator_params(axis='x', nbins=4)
@@ -576,7 +577,7 @@ def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude, title, show=
 
 
 def plot_cross_frequency_coupling(times, freqs, traces, ztraces,
-                                  z_threshold, erp):
+                                  z_threshold, erp, show=True):
     """
     Plot Cross Frequency Coupling
 
