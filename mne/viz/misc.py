@@ -541,26 +541,24 @@ def _get_presser(fig):
 def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude,
                                   title=None, show=True):
     """
-    Plot Phase Amplitude Plot
+    Plot the phase amplitude plot.
 
     Parameters
     ----------
-    phase_bins : array
+    phase_bins : array, shape (number of bins + 1)
         Binned phase time series of phase modulating signal.
-    normalized_amplitude : array
-        Normalised phase amplitude time series of amplitude modulated signal.
-    title : str
-        Title, default is phase amplitude plot.
+    normalized_amplitude : ndarray, shape (n_epochs, bin_num)
+        The normalized amplitude values across each bin.
+    title : str, None
+        Title, default is 'Phase amplitude plot'.
     show : bool
-        Call pyplot.show() at the end.
+        Call pyplot.show() at the end. Default is True.
 
     Returns
     -------
-    fig : Instance of matplotlib.figure.Figure
-          Figure
-
+    None
     """
-    if not title:
+    if title is None:
         title = 'Phase amplitude plot'
     import matplotlib.pyplot as plt
     for i in range(len(phase_bins) - 1):  # the bins are always more
@@ -579,24 +577,25 @@ def plot_phase_amplitude_coupling(phase_bins, normalized_amplitude,
 def plot_cross_frequency_coupling(times, freqs, traces, ztraces,
                                   z_threshold, erp, show=True):
     """
-    Plot Cross Frequency Coupling
+    Plot showing cross frequency coupling between evoked related potentials
+    across frequency points.
 
     Parameters
     ----------
-    times : array
+    times : array, shape (n_times)
         Time points for signal plotting.
-    freqs : array
-        Frequencies.
-    traces : array
+    freqs : array, shape (f_n)
+        Frequency points across range at which amplitudes are computed.
+    traces : ndarray, shape (n_epochs, n_times)
         Normalized amplitude traces.
-    ztraces : array
+    ztraces : ndarray, shape (n_epochs, n_times)
         Statistically significant amplitude traces.
     z_threshold : float
         Threshold of statistically significant amplitude traces.
-    erp : array
-        ERPs
+    erp : array, shape (n_times)
+        Evoked related potential.
     show : bool
-        Call pyplot.show() at the end.
+        Call pyplot.show() at the end. Default True.
 
     Returns
     -------
