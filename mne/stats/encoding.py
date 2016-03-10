@@ -7,13 +7,14 @@ from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import mean_squared_error
 from sklearn.pipeline import Pipeline
 from mne.utils import _time_mask
+from matplotlib import pyplot as plt
 
 __all__ = ['EncodingModel',
            'delay_timeseries']
 
 
 class EncodingModel(object):
-    def __init__(self, delays=None, est=None, cv=None, scorer=None):
+    def __init__(self, delays=None, est=None, scorer=None):
         """Fit a STRF model.
 
         This implementation uses Ridge regression and scikit-learn. It creates time
@@ -30,8 +31,6 @@ class EncodingModel(object):
             dictionary of kwargs to pass in the construction of that estimator. If
             any values in kwargs is len > 1, then it is assumed that an inner CV
             loop is required to select the best value using GridSearchCV.
-        cv : int | instance of (KFold, LabelShuffleSplit)
-            The cross validation object to use for the outer loop
         scorer : function | None
             The scorer to use when evaluating on the held-out test set.
             It must accept two 1-d arrays as inputs, and output a scalar value.
@@ -51,13 +50,10 @@ class EncodingModel(object):
         self.delays = np.array([0]) if delays is None else delays
         self.n_delays = len(self.delays)
         self.est = Ridge() if est is None else est
-        if isinstance(cv, (float, int)):
-            self.cv = KFold(n_folds=cv)
-        else:
-            self.cv = cv
         self.scorer = mean_squared_error if scorer is None else scorer
 
-    def fit(self, X, y, sfreq, times=None, tmin=None, tmax=None, feat_names=None):
+    def fit(self, X, y, sfreq, times=None, tmin=None, tmax=None, cv=None,
+            cv_params=None, feat_names=None):
         """Fit the model.
 
         Parameters
@@ -77,6 +73,8 @@ class EncodingModel(object):
         tmax : float | array, shape (n_epochs,)
             The end time for each epoch. Optionally a different time for each
             epoch may be provided.
+        cv : int | instance of (KFold, LabelShuffleSplit)
+            The cross validation object to use for the outer loop
         feat_names : list of strings/ints/floats, shape (n_feats,) : None
             A list of values corresponding to input features. Useful for
             keeping track of the coefficients in the model after time lagging.
@@ -91,28 +89,28 @@ class EncodingModel(object):
         self.tmax = times[-1] if tmax is None else tmax
         self.times = times
         self.sfreq = sfreq
-        if feat_names is None:
-            feat_names = [str(i) for i in range(len(X))]
-        self.feat_names = np.array(feat_names)
 
         # Delay X
-        X, y, labels = _build_design_matrix(X, y, sfreq, self.times,
-                                            self.delays, self.tmin, self.tmax)
-        cv = _check_cv(X, labels, self.cv)
+        X, y, labels, names = _build_design_matrix(X, y, sfreq, self.times,
+                                                   self.delays, self.tmin,
+                                                   self.tmax, feat_names)
+        self.feat_names = np.array(names)
+        cv = _check_cv(X, labels, cv, cv_params)
 
         # Define names for input variabels to keep track of time delays
-        X_names = ['{0}_{1}'.format(feat, delay)
+        X_names = [(feat, delay)
                    for delay in self.delays for feat in self.feat_names]
-        self.feature_names_with_lags_ = X_names
+        self.coef_names = X_names
 
         # Build model instance
         if not isinstance(self.est, Pipeline):
             self.est = Pipeline([('est', self.est)])
 
         # Create model metadata that we'll add to the obj later
+        mod = self.est.steps[-1][-1]
         model_data = dict(coefs_all_=[], scores_=[])
-        if isinstance(self.est.steps[-1][-1], GridSearchCV):
-            model_data.update(dict(best_estimators_=[], grid_scores_=[]))
+        if isinstance(mod, GridSearchCV):
+            model_data.update(dict(best_estimators_=[], best_params_=[]))
 
         # Fit the model and collect model results
         for i, (tr, tt) in enumerate(cv):
@@ -123,14 +121,13 @@ class EncodingModel(object):
             lab_tr = labels[tr]
             lab_tt = labels[tt]
             self.est.fit(X_tr, y_tr)
-            mod = self.est.steps[-1][-1]
 
             if isinstance(mod, GridSearchCV):
                 # If it's a GridSearch, then add a "best_params" object
                 # Assume hyperparameter search
                 if mod.refit:
                     model_data['best_estimators_'].append(mod.best_estimator_)
-                    model_data['coefs_all_'].append(mod.best_estimator_.coefs_)
+                    model_data['coefs_all_'].append(mod.best_estimator_.coef_)
                 model_data['best_params_'].append(mod.best_params_)
             else:
                 model_data['coefs_all_'].append(mod.coef_)
@@ -142,6 +139,7 @@ class EncodingModel(object):
         for key, val in model_data.iteritems():
             setattr(self, key, np.array(val))
         self.coefs_ = np.mean(self.coefs_all_, axis=0)
+        self.cv = cv
 
     def predict(self, X):
         X_lag = delay_timeseries(X, self.sfreq, self.delays)
@@ -149,21 +147,36 @@ class EncodingModel(object):
         Xt = self.est._pre_transform(X_lag.T)[0]
         return np.dot(Xt, self.coefs_)
 
-    def plot_coefficients(self, agg=np.mean, ax=None, **kwargs):
-        from matplotlib import pyplot as plt
-        coefs = agg(self.coefs_all_, axis=0)
-        coefs = coefs.reshape([-1, self.n_delays])
+    def coefs_as_series(self, agg=None):
+        ix = pd.MultiIndex.from_tuples(self.coef_names, names=['feat', 'lag'])
+        if agg is None:
+            sr = []
+            for icv, icoef in enumerate(self.coefs_all_):
+                isr = pd.DataFrame(icoef[:, np.newaxis], index=ix)
+                isr['cv'] = icv
+                isr = isr.set_index('cv', append=True).squeeze()
+                sr.append(isr)
+            sr = pd.concat(sr, axis=0)
+        else:
+            coefs = agg(self.coefs_all_, axis=0)
+            sr = pd.Series(coefs, index=ix)
+        return sr
 
+    def plot_coefficients(self, agg=None, ax=None, cmap=plt.cm.RdBu_r,
+                          interpolation='nearest', aspect='auto', **kwargs):
+        from matplotlib import pyplot as plt
+        agg = np.mean if agg is None else agg
         if ax is None:
             f, ax = plt.subplots()
-        im = ax.imshow(self.coefs_.reshape([-1, self.n_delays]),
-                       **kwargs)
+        df = self.coefs_as_series(agg=agg).unstack('lag')
+        im = ax.imshow(df.values, cmap=cmap, interpolation=interpolation,
+                       aspect=aspect, **kwargs)
 
         for lab in ax.get_xticklabels():
-            lab.set_text(self.delays[int(lab.get_position()[0])])
+            lab.set_text(df.columns[int(lab.get_position()[0])])
 
         for lab in ax.get_yticklabels():
-            lab.set_text(self.feat_names[int(lab.get_position()[1])])
+            lab.set_text(df.index[int(lab.get_position()[1])])
 
         ax.set_xlabel('Time delays (s)')
         ax.set_ylabel('Features')
@@ -233,8 +246,11 @@ def _check_inputs(X, y, times, delays, tmin, tmax):
     return X, y, tmin, tmax
 
 
-def _build_design_matrix(X, y, sfreq, times, delays, tmin, tmax):
+def _build_design_matrix(X, y, sfreq, times, delays, tmin, tmax, names):
     X, y, tmin, tmax = _check_inputs(X, y, times, delays, tmin, tmax)
+    if names is None:
+        names = [str(i) for i in range(X.shape[1])]
+
     # Iterate through epochs with custom tmin/tmax if necessary
     X_out, y_out, lab_out = [[] for _ in range(3)]
     for i, (epX, epy, itmin, itmax) in enumerate(zip(X, y, tmin, tmax)):
@@ -252,18 +268,25 @@ def _build_design_matrix(X, y, sfreq, times, delays, tmin, tmax):
         X_out.append(epX_out)
         y_out.append(epy_out)
         lab_out.append(ep_lab)
-    return np.hstack(X_out), np.hstack(y_out), np.hstack(lab_out)
+    return np.hstack(X_out), np.hstack(y_out), np.hstack(lab_out), names
 
 
-def _check_cv(X, labels, cv):
+def _check_cv(X, labels, cv, cv_params):
     cv = 5 if cv is None else cv
+    cv_params = dict() if cv_params is None else cv_params
     if isinstance(cv, float):
         raise ValueError('cv must be an int or instance of sklearn cv')
-    if isinstance(cv, int):
-        if len(np.unique(labels)) == 1:
-            # Assume single continuous data, do KFold
-            cv = KFold(labels.shape[-1], cv)
-        else:
-            # Assume trials structure, do LabelShufleSplit
-            cv = LabelShuffleSplit(labels, n_iter=cv, test_size=.2)
+
+    if len(np.unique(labels)) == 1:
+        # Assume single continuous data, cv must take a single number
+        if isinstance(cv, int):
+            cv_params = dict(n_folds=cv)
+            cv = KFold
+        cv = cv(labels.shape[-1], **cv_params)
+    else:
+        # Assume trials structure, cv must take a set of labels for trials
+        if isinstance(cv, int):
+            cv_params = dict(n_iter=cv)
+            cv = LabelShuffleSplit
+        cv = cv(labels, **cv_params)
     return cv
