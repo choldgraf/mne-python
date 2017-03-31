@@ -36,7 +36,11 @@ nodes = dict(
     raw='Raw data\nmne.io.Raw',
     epo='Epoched data\nmne.Epochs',
     evo='Averaged data\nmne.Evoked',
-    pre='Preprocessed data\nmne.io.Raw',
+    pre='Preprocessed data\nmne.io.read_raw_*',
+    ml='Machine Learning\nmne.decoding',
+    con='Connectivity\nmne.connectivity',
+    tfr='Time-Frequency\nmne.time_frequency',
+    stat='Statistics\nmne.stats',
     legend=legend,
 )
 
@@ -47,28 +51,36 @@ edges = (
     ('T1', 'recon'),
     ('flashes', 'bem'),
     ('recon', 'bem'),
-    ('recon', 'src', 'mne.setup_source_space'),
+    ('recon', 'src'),
     ('src', 'fwd'),
     ('bem', 'fwd'),
-    ('trans', 'fwd', 'mne.make_forward_solution'),
+    ('trans', 'fwd'),
     ('fwd', 'inv'),
-    ('cov', 'inv', 'mne.make_inverse_operator'),
+    ('cov', 'inv'),
     ('inv', 'stc'),
-    ('evo', 'stc', 'mne.minimum_norm.apply_inverse'),
-    ('raw', 'pre', 'raw.filter\n'
-                   'mne.preprocessing.ICA\n'
-                   'mne.preprocessing.compute_proj_eog\n'
-                   'mne.preprocessing.compute_proj_ecg\n'
-                   '...'),
-    ('pre', 'epo', 'mne.Epochs'),
-    ('epo', 'evo', 'epochs.average'),
-    ('epo', 'cov', 'mne.compute_covariance'),
+    ('evo', 'stc'),
+    ('epo', 'stc'),
+    ('raw', 'pre'),
+    ('pre', 'epo'),
+    ('epo', 'evo'),
+    ('epo', 'cov'),
+    ('epo', 'ml'),
+    ('raw', 'ml'),
+    ('tfr', 'ml'),
+    ('tfr', 'stat'),
+    ('stc', 'stat'),
+    ('stc', 'con'),
+    ('epo', 'tfr'),
+    ('evo', 'tfr'),
+    ('stc', 'tfr'),
 )
 
 subgraphs = (
     [('T1', 'flashes', 'recon', 'bem', 'src'),
      ('<Structural information<BR/><FONT POINT-SIZE="%s"><I>'
       'Freesurfer / MNE-C</I></FONT>>' % node_small_size)],
+    [('ml', 'stat', 'con'),
+     ('Data Analysis')],
 )
 
 
