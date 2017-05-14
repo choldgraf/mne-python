@@ -1,0 +1,12 @@
+mne.decoding.delay_time_series
+==============================
+
+.. currentmodule:: mne.decoding
+
+.. autofunction:: delay_time_series
+
+.. include:: mne.decoding.delay_time_series.examples
+
+.. raw:: html
+
+    <div style='clear:both'></div>
